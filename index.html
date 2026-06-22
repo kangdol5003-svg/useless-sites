@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#fdfdfd" />
+    <title>Spinning Cat</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="stage" aria-label="빙글빙글 도는 고양이">
+      <canvas id="cat" role="img" aria-label="빙글빙글 도는 고양이"></canvas>
+    </main>
+    <audio
+      id="cat-sound"
+      src="assets/oiiai.mp3"
+      preload="auto"
+      loop
+      playsinline
+      webkit-playsinline
+    ></audio>
+    <audio
+      id="scratch-sound"
+      src="assets/turntable-scratch.wav"
+      preload="auto"
+      loop
+      playsinline
+      webkit-playsinline
+    ></audio>
+    <script src="script.js"></script>
+  </body>
+</html>
