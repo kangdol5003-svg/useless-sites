@@ -1,7 +1,14 @@
 const canvas = document.querySelector('#cat');
 const context = canvas.getContext('2d', { alpha: false });
 const catSound = document.querySelector('#cat-sound');
-const scratchSound = document.querySelector('#scratch-sound');
+const audioStartButton = document.querySelector('#audio-start');
+const isTouchDevice = matchMedia('(pointer: coarse)').matches
+  || navigator.maxTouchPoints > 0
+  || 'ontouchstart' in window;
+
+if (isTouchDevice) {
+  document.documentElement.classList.add('touch-device');
+}
 
 // 첫 프레임 측정값: 전체 436×322px, 실제 고양이 높이는 약 69%.
 const CAT_VISIBLE_HEIGHT_RATIO = 0.69;
@@ -44,35 +51,36 @@ let currentVisibleSize = Math.min(innerWidth, innerHeight) / MIN_SIZE_DIVISOR;
 let playbackExcitement = 0;
 let currentPlaybackRate = BASE_PLAYBACK_RATE;
 let currentAudioRate = BASE_AUDIO_RATE;
+let rightMotionIntensity = 0;
 let previousRenderTime = performance.now();
 let soundUnlocked = false;
-let rightMotionIntensity = 0;
-let leftMotionIntensity = 0;
+let soundStarting = false;
 
-function startSound() {
+async function startSound() {
+  if (!catSound.paused) {
+    soundUnlocked = true;
+    audioStartButton.classList.add('is-hidden');
+    return true;
+  }
+  if (soundStarting) return false;
+
+  soundStarting = true;
   catSound.volume = 0.65;
   catSound.muted = false;
   catSound.defaultMuted = false;
-  catSound.preservesPitch = false;
-  catSound.webkitPreservesPitch = false;
-  const playAttempt = catSound.play();
-
-  if (playAttempt) {
-    playAttempt
-      .then(() => {
-        soundUnlocked = true;
-      })
-      .catch(() => {
-        // 모바일 자동재생 정책상 다음 사용자 터치에서 다시 시도한다.
-      });
+  catSound.playbackRate = BASE_AUDIO_RATE;
+  try {
+    await catSound.play();
+    soundUnlocked = true;
+    audioStartButton.classList.add('is-hidden');
+    return true;
+  } catch {
+    soundUnlocked = false;
+    audioStartButton.classList.remove('is-hidden');
+    return false;
+  } finally {
+    soundStarting = false;
   }
-
-  scratchSound.muted = false;
-  scratchSound.defaultMuted = false;
-  scratchSound.volume = 0;
-  scratchSound.play().catch(() => {
-    // 다음 사용자 제스처에서 다시 시도한다.
-  });
 }
 
 async function loadGifFrames() {
@@ -167,15 +175,15 @@ function handlePointerMove(event) {
     ? Math.min(1, normalizedAcceleration * inputGain)
     : 0;
 
-  // 오른쪽은 메인 음원 배속, 왼쪽은 별도의 턴테이블 마찰음을 섞는다.
+  // 추가 효과음 없이 오른쪽 이동에만 메인 음원의 배속을 연결한다.
   const horizontalSpeed = Math.abs(velocityX) / shortSide;
-  const directionalIntensity = isIntentionalMotion
+  const rightIntensity = isIntentionalMotion && velocityX > 0
     ? Math.min(1, Math.max(0, (horizontalSpeed - 0.25) / 3.5) * inputGain)
     : 0;
   if (velocityX > 0) {
-    rightMotionIntensity = Math.max(rightMotionIntensity, directionalIntensity);
+    rightMotionIntensity = Math.max(rightMotionIntensity, rightIntensity);
   } else if (velocityX < 0) {
-    leftMotionIntensity = Math.max(leftMotionIntensity, directionalIntensity);
+    rightMotionIntensity *= 0.35;
   }
 
   // 가속도 입력을 완충해 짧은 손떨림에 배속이 튀지 않게 한다.
@@ -190,7 +198,9 @@ function handlePointerMove(event) {
 }
 
 function handlePointerDown(event) {
-  startSound();
+  if (event.pointerType !== 'touch') {
+    startSound();
+  }
 
   if (event.pointerType === 'touch') {
     if (activeTouchPointerId !== null) return;
@@ -240,15 +250,11 @@ function render(now) {
   currentPlaybackRate += (desiredPlaybackRate - currentPlaybackRate) * rateEase;
 
   rightMotionIntensity *= Math.exp(-3.6 * dt);
-  leftMotionIntensity *= Math.exp(-4.8 * dt);
-
   const desiredAudioRate = BASE_AUDIO_RATE
     + rightMotionIntensity * (MAX_AUDIO_RATE - BASE_AUDIO_RATE);
   const audioRateEase = 1 - Math.exp(-(desiredAudioRate > currentAudioRate ? 7 : 3) * dt);
   currentAudioRate += (desiredAudioRate - currentAudioRate) * audioRateEase;
   catSound.playbackRate = Math.max(BASE_AUDIO_RATE, Math.min(MAX_AUDIO_RATE, currentAudioRate));
-  catSound.volume = 0.65 - leftMotionIntensity * 0.12;
-  scratchSound.volume = Math.min(0.58, leftMotionIntensity * 0.58);
 
   animationClock = (animationClock + dt * 1000 * currentPlaybackRate) % totalAnimationDuration;
 
@@ -274,11 +280,19 @@ addEventListener('pointerdown', handlePointerDown, { passive: true });
 addEventListener('pointerup', handlePointerEnd, { passive: true });
 addEventListener('pointercancel', handlePointerEnd, { passive: true });
 
-// 일부 카카오톡/iOS 인앱 브라우저는 pointerdown을 음원 재생 제스처로
-// 인정하지 않으므로 터치와 클릭 이벤트에서도 재생을 직접 시도한다.
-document.addEventListener('touchstart', startSound, { capture: true, passive: true });
-document.addEventListener('touchend', startSound, { capture: true, passive: true });
-document.addEventListener('click', startSound, { capture: true, passive: true });
+// 모바일은 실제 버튼 click 한 번만 사용한다. touchstart에서 먼저 호출하면
+// 카카오톡이 인정하는 click이 soundStarting 잠금에 막힐 수 있다.
+audioStartButton.addEventListener('click', startSound);
+
+// PC의 기존 첫 클릭 재생 경로는 유지한다.
+document.addEventListener('click', () => {
+  if (!isTouchDevice) startSound();
+}, { capture: true, passive: true });
+
+// PC에서는 버튼 없이 즉시 재생을 시도한다. 자동재생이 차단되면 첫 클릭에서 재시도된다.
+if (!isTouchDevice) {
+  startSound();
+}
 
 function handleViewportChange() {
   pointerX = Math.min(pointerX, innerWidth);
@@ -299,10 +313,8 @@ document.addEventListener('visibilitychange', () => {
 
   if (document.hidden) {
     catSound.pause();
-    scratchSound.pause();
   } else if (soundUnlocked) {
     catSound.play().catch(() => {});
-    scratchSound.play().catch(() => {});
   }
 });
 loadGifFrames()

@@ -42,3 +42,51 @@ body {
   pointer-events: none;
   will-change: width, height;
 }
+
+#audio-start {
+  display: none;
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #111;
+  color: #fdfdfd;
+  font: 700 20px/1 system-ui, sans-serif;
+  transform: translateX(-50%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (pointer: coarse) {
+  #audio-start {
+    display: block;
+  }
+}
+
+.touch-device #audio-start {
+  display: block;
+}
+
+.touch-device #cat {
+  transform: translate(1.55%, 1.66%);
+}
+
+@media (pointer: coarse) {
+  #cat {
+    transform: translate(1.55%, 1.66%);
+  }
+}
+
+#audio-start span {
+  display: block;
+  margin-left: 3px;
+}
+
+#audio-start.is-hidden {
+  display: none;
+}

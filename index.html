@@ -15,22 +15,18 @@
     <main class="stage" aria-label="빙글빙글 도는 고양이">
       <canvas id="cat" role="img" aria-label="빙글빙글 도는 고양이"></canvas>
     </main>
+    <button id="audio-start" type="button" aria-label="소리 재생">
+      <span aria-hidden="true">▶</span>
+    </button>
     <audio
       id="cat-sound"
-      src="assets/oiiai.mp3"
       preload="auto"
       loop
       playsinline
       webkit-playsinline
-    ></audio>
-    <audio
-      id="scratch-sound"
-      src="assets/turntable-scratch.wav"
-      preload="auto"
-      loop
-      playsinline
-      webkit-playsinline
-    ></audio>
+    >
+      <source src="assets/oiiai.mp3" type="audio/mpeg" />
+    </audio>
     <script src="script.js"></script>
   </body>
 </html>
